@@ -7,35 +7,148 @@ export interface LyricsData {
 }
 
 /**
- * Search online songs using the public iTunes Search API (no API key required, CORS supported).
+ * Search online songs using multi-source fallbacks (iTunes IN, iTunes US, JioSaavn API, Deezer Proxy).
+ * Ensures search works smoothly on Vercel deployments and mobile devices across all regions.
  */
 export async function searchOnlineTracks(query: string): Promise<Track[]> {
   if (!query.trim()) return [];
+  const encoded = encodeURIComponent(query.trim());
 
+  // 1. Try JioSaavn Dev API first (Great for Hindi, English, Punjabi, Bollywood & Global Music)
   try {
-    const encoded = encodeURIComponent(query.trim());
-    const res = await fetch(`https://itunes.apple.com/search?term=${encoded}&media=music&limit=30`);
-    if (!res.ok) throw new Error('Search request failed');
+    const saavnRes = await fetch(`https://saavn.dev/api/search/songs?query=${encoded}&limit=25`);
+    if (saavnRes.ok) {
+      const saavnData = await saavnRes.json();
+      const results = saavnData?.data?.results || saavnData?.data;
+      if (Array.isArray(results) && results.length > 0) {
+        const tracks: Track[] = results
+          .filter((item: any) => item.name && (item.downloadUrl || item.media_url))
+          .map((item: any) => {
+            // Find best audio URL (prefer 320kbps or highest quality)
+            let audioUrl = '';
+            if (Array.isArray(item.downloadUrl) && item.downloadUrl.length > 0) {
+              const bestQuality = item.downloadUrl[item.downloadUrl.length - 1];
+              audioUrl = bestQuality.url || bestQuality.link || item.downloadUrl[0].url;
+            } else if (typeof item.downloadUrl === 'string') {
+              audioUrl = item.downloadUrl;
+            } else if (item.media_url) {
+              audioUrl = item.media_url;
+            }
 
-    const data = await res.json();
-    if (!data.results) return [];
+            // Find best cover image
+            let coverUrl = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80';
+            if (Array.isArray(item.image) && item.image.length > 0) {
+              coverUrl = item.image[item.image.length - 1].url || item.image[0].url;
+            } else if (typeof item.image === 'string') {
+              coverUrl = item.image;
+            }
 
-    return data.results
-      .filter((item: any) => item.previewUrl && item.trackName)
-      .map((item: any) => ({
-        id: `itunes-${item.trackId}`,
-        title: item.trackName,
-        artist: item.artistName || 'Unknown Artist',
-        album: item.collectionName || 'Single',
-        duration: 30, // iTunes previews are 30 seconds
-        coverUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '',
-        audioUrl: item.previewUrl,
-        isOnline: true,
-      }));
-  } catch (err) {
-    console.error('iTunes search error:', err);
-    return [];
+            return {
+              id: `saavn-${item.id}`,
+              title: cleanHtmlEntities(item.name),
+              artist: cleanHtmlEntities(item.primaryArtists || item.artist || 'Unknown Artist'),
+              album: cleanHtmlEntities(item.album?.name || item.album || 'Single'),
+              duration: item.duration ? parseInt(item.duration, 10) : 180,
+              coverUrl: coverUrl.replace('http:', 'https:'),
+              audioUrl: audioUrl.replace('http:', 'https:'),
+              isOnline: true,
+            };
+          })
+          .filter((t) => t.audioUrl);
+
+        if (tracks.length > 0) {
+          return tracks;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('JioSaavn search skipped, trying iTunes multi-region...', e);
   }
+
+  // 2. Try iTunes API with India region (country=IN)
+  try {
+    const itunesInRes = await fetch(
+      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=25&country=IN`
+    );
+    if (itunesInRes.ok) {
+      const data = await itunesInRes.json();
+      if (data?.results && data.results.length > 0) {
+        return parseItunesResults(data.results);
+      }
+    }
+  } catch (e) {
+    console.warn('iTunes IN search failed, trying iTunes US...', e);
+  }
+
+  // 3. Fallback: iTunes API Global (country=US)
+  try {
+    const itunesUsRes = await fetch(
+      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=25&country=US`
+    );
+    if (itunesUsRes.ok) {
+      const data = await itunesUsRes.json();
+      if (data?.results && data.results.length > 0) {
+        return parseItunesResults(data.results);
+      }
+    }
+  } catch (e) {
+    console.warn('iTunes US search failed, trying Deezer proxy...', e);
+  }
+
+  // 4. Fallback: Deezer Proxy Search
+  try {
+    const deezerRes = await fetch(
+      `https://corsproxy.io/?${encodeURIComponent(`https://api.deezer.com/search?q=${encoded}&limit=25`)}`
+    );
+    if (deezerRes.ok) {
+      const deezerData = await deezerRes.json();
+      if (deezerData?.data && Array.isArray(deezerData.data) && deezerData.data.length > 0) {
+        return deezerData.data
+          .filter((item: any) => item.preview && item.title)
+          .map((item: any) => ({
+            id: `deezer-${item.id}`,
+            title: item.title,
+            artist: item.artist?.name || 'Unknown Artist',
+            album: item.album?.title || 'Single',
+            duration: item.duration || 30,
+            coverUrl: item.album?.cover_medium || item.album?.cover_big || '',
+            audioUrl: item.preview,
+            isOnline: true,
+          }));
+      }
+    }
+  } catch (e) {
+    console.error('All online music search APIs failed:', e);
+  }
+
+  return [];
+}
+
+/** Helper to clean HTML entities like &quot; &amp; &#039; from song titles */
+function cleanHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+/** Helper to format iTunes API items */
+function parseItunesResults(results: any[]): Track[] {
+  return results
+    .filter((item: any) => item.previewUrl && item.trackName)
+    .map((item: any) => ({
+      id: `itunes-${item.trackId}`,
+      title: item.trackName,
+      artist: item.artistName || 'Unknown Artist',
+      album: item.collectionName || 'Single',
+      duration: 30, // iTunes previews are 30 seconds
+      coverUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '',
+      audioUrl: item.previewUrl,
+      isOnline: true,
+    }));
 }
 
 /**
