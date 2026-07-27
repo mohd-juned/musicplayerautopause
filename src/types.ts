@@ -8,6 +8,7 @@ export interface Track {
   audioUrl: string;
   isCustom?: boolean;
   isGenerated?: boolean;
+  isOnline?: boolean;
 }
 
 export type VoiceState = 
@@ -33,3 +34,5 @@ export interface VoiceDetectorStats {
   isSpeaking: boolean;
   countdownRemaining: number; // in seconds (e.g. 4.2)
 }
+
+export type ActiveTab = 'player' | 'search' | 'playlist' | 'lyrics' | 'settings';
