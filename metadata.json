@@ -1,0 +1,6 @@
+{
+  "name": "Smart Music Player",
+  "description": "A PWA music player with auto voice detection that pauses audio when you speak and resumes after 5 seconds of silence.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,23 @@
+{
+  "short_name": "SmartPlayer",
+  "name": "Smart Music Player - Auto Voice Pause",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=192&auto=format&fit=crop&q=80",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512&auto=format&fit=crop&q=80",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "Smart PWA Music Player that auto-pauses music when human speech is detected and resumes after 5 seconds of silence."
+}
