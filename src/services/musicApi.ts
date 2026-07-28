@@ -7,24 +7,53 @@ export interface LyricsData {
 }
 
 /**
- * Search online songs using multi-source fallbacks (iTunes IN, iTunes US, JioSaavn API, Deezer Proxy).
- * Ensures search works smoothly on Vercel deployments and mobile devices across all regions.
+ * Search online songs using the free, no-API-key-required iTunes Search API.
+ * Uses try-catch error handling to ensure seamless execution on mobile devices and Vercel deployments.
  */
 export async function searchOnlineTracks(query: string): Promise<Track[]> {
   if (!query.trim()) return [];
   const encoded = encodeURIComponent(query.trim());
 
-  // 1. Try JioSaavn Dev API first (Great for Hindi, English, Punjabi, Bollywood & Global Music)
+  // 1. Primary: Direct iTunes Search API (no country lock, limit 20)
   try {
-    const saavnRes = await fetch(`https://saavn.dev/api/search/songs?query=${encoded}&limit=25`);
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=20`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
+        return parseItunesResults(data.results);
+      }
+    }
+  } catch (err) {
+    console.warn('Primary iTunes search error, trying country-specific fallback...', err);
+  }
+
+  // 2. Secondary: iTunes Search API with country=IN (for Indian/Bollywood queries)
+  try {
+    const resIN = await fetch(
+      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=20&country=IN`
+    );
+    if (resIN.ok) {
+      const dataIN = await resIN.json();
+      if (dataIN?.results && Array.isArray(dataIN.results) && dataIN.results.length > 0) {
+        return parseItunesResults(dataIN.results);
+      }
+    }
+  } catch (err) {
+    console.warn('iTunes IN search error:', err);
+  }
+
+  // 3. Tertiary: JioSaavn Dev API fallback for regional tracks
+  try {
+    const saavnRes = await fetch(`https://saavn.dev/api/search/songs?query=${encoded}&limit=20`);
     if (saavnRes.ok) {
       const saavnData = await saavnRes.json();
       const results = saavnData?.data?.results || saavnData?.data;
       if (Array.isArray(results) && results.length > 0) {
-        const tracks: Track[] = results
+        return results
           .filter((item: any) => item.name && (item.downloadUrl || item.media_url))
           .map((item: any) => {
-            // Find best audio URL (prefer 320kbps or highest quality)
             let audioUrl = '';
             if (Array.isArray(item.downloadUrl) && item.downloadUrl.length > 0) {
               const bestQuality = item.downloadUrl[item.downloadUrl.length - 1];
@@ -35,7 +64,6 @@ export async function searchOnlineTracks(query: string): Promise<Track[]> {
               audioUrl = item.media_url;
             }
 
-            // Find best cover image
             let coverUrl = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80';
             if (Array.isArray(item.image) && item.image.length > 0) {
               coverUrl = item.image[item.image.length - 1].url || item.image[0].url;
@@ -54,71 +82,11 @@ export async function searchOnlineTracks(query: string): Promise<Track[]> {
               isOnline: true,
             };
           })
-          .filter((t) => t.audioUrl);
-
-        if (tracks.length > 0) {
-          return tracks;
-        }
+          .filter((t: Track) => t.audioUrl);
       }
     }
   } catch (e) {
-    console.warn('JioSaavn search skipped, trying iTunes multi-region...', e);
-  }
-
-  // 2. Try iTunes API with India region (country=IN)
-  try {
-    const itunesInRes = await fetch(
-      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=25&country=IN`
-    );
-    if (itunesInRes.ok) {
-      const data = await itunesInRes.json();
-      if (data?.results && data.results.length > 0) {
-        return parseItunesResults(data.results);
-      }
-    }
-  } catch (e) {
-    console.warn('iTunes IN search failed, trying iTunes US...', e);
-  }
-
-  // 3. Fallback: iTunes API Global (country=US)
-  try {
-    const itunesUsRes = await fetch(
-      `https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=25&country=US`
-    );
-    if (itunesUsRes.ok) {
-      const data = await itunesUsRes.json();
-      if (data?.results && data.results.length > 0) {
-        return parseItunesResults(data.results);
-      }
-    }
-  } catch (e) {
-    console.warn('iTunes US search failed, trying Deezer proxy...', e);
-  }
-
-  // 4. Fallback: Deezer Proxy Search
-  try {
-    const deezerRes = await fetch(
-      `https://corsproxy.io/?${encodeURIComponent(`https://api.deezer.com/search?q=${encoded}&limit=25`)}`
-    );
-    if (deezerRes.ok) {
-      const deezerData = await deezerRes.json();
-      if (deezerData?.data && Array.isArray(deezerData.data) && deezerData.data.length > 0) {
-        return deezerData.data
-          .filter((item: any) => item.preview && item.title)
-          .map((item: any) => ({
-            id: `deezer-${item.id}`,
-            title: item.title,
-            artist: item.artist?.name || 'Unknown Artist',
-            album: item.album?.title || 'Single',
-            duration: item.duration || 30,
-            coverUrl: item.album?.cover_medium || item.album?.cover_big || '',
-            audioUrl: item.preview,
-            isOnline: true,
-          }));
-      }
-    }
-  } catch (e) {
-    console.error('All online music search APIs failed:', e);
+    console.warn('JioSaavn search fallback failed:', e);
   }
 
   return [];

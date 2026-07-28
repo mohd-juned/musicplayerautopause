@@ -25,17 +25,17 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo & Title */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-black">
-            <Radio className="w-5 h-5 font-bold animate-pulse" />
+            <Mic className="w-5 h-5 font-bold" />
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight flex items-center gap-2">
-              Spotify Smart
+              Earpro
               <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 PWA
               </span>
             </h1>
             <p className="text-xs text-zinc-400 hidden sm:block">
-              Auto-pauses music when you speak & resumes after 5s
+              Auto-pauses music when you speak & resumes after silence
             </p>
           </div>
         </div>

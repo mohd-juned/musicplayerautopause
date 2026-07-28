@@ -29,7 +29,7 @@ export const InstallGuideModal: React.FC<InstallGuideModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Add to Home Screen</h3>
-              <p className="text-xs text-zinc-400">Install Smart Music Player PWA</p>
+              <p className="text-xs text-zinc-400">Install Earpro PWA</p>
             </div>
           </div>
           <button
