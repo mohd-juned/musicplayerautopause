@@ -14,7 +14,7 @@ export function useVoiceDetector({
 }: UseVoiceDetectorProps) {
   const [settings, setSettings] = useState<VoiceDetectorSettings>({
     enabled: false,
-    thresholdDb: -38, // -38 dB default speech threshold
+    thresholdDb: -22, // -22 dB default speech threshold (requires louder/near-field speech to prevent false triggers)
     silenceDelaySeconds: 5, // 5 seconds
     useSpeechFilter: true, // bandpass for voice frequencies
     noiseFloorDb: -80,
@@ -218,16 +218,23 @@ export function useVoiceDetector({
 
       // Start processing
       processAudioFrame();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Microphone error:', err);
-      setErrorMessage('Microphone access denied or unavailable.');
+      let msg = 'Microphone access denied or unavailable.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = 'Microphone permission denied. Please click the lock icon in your browser address bar to allow microphone access.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        msg = 'No microphone found on your device.';
+      }
+      setErrorMessage(msg);
       setVoiceState('error');
       setSettings((prev) => ({ ...prev, enabled: false }));
     }
   }, [processAudioFrame, settings.silenceDelaySeconds, settings.useSpeechFilter]);
 
-  // Toggle Auto Voice Pause ON/OFF
+  // Toggle Auto Voice Pause ON/OFF with Retry support
   const toggleEnabled = useCallback(() => {
+    setErrorMessage(null);
     setSettings((prev) => {
       const nextEnabled = !prev.enabled;
       if (!nextEnabled) {

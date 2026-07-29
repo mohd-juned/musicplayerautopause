@@ -1,10 +1,12 @@
 import React from 'react';
-import { Radio, Download, Mic, MicOff, PlusCircle } from 'lucide-react';
+import { Radio, Download, Mic, MicOff, PlusCircle, Crown } from 'lucide-react';
 import { VoiceState } from '../types';
 
 interface HeaderProps {
   voiceState: VoiceState;
   autoVoiceEnabled: boolean;
+  isProUser?: boolean;
+  onOpenSubscription?: () => void;
   onToggleAutoVoice: () => void;
   onOpenInstallGuide: () => void;
   deferredPrompt: BeforeInstallPromptEvent | null;
@@ -14,6 +16,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   voiceState,
   autoVoiceEnabled,
+  isProUser,
+  onOpenSubscription,
   onToggleAutoVoice,
   onOpenInstallGuide,
   deferredPrompt,
@@ -30,9 +34,16 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight flex items-center gap-2">
               Earpro
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                PWA
-              </span>
+              {isProUser ? (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 flex items-center gap-1">
+                  <Crown className="w-3 h-3 fill-amber-300" />
+                  PRO
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  PWA
+                </span>
+              )}
             </h1>
             <p className="text-xs text-zinc-400 hidden sm:block">
               Auto-pauses music when you speak & resumes after silence
@@ -42,6 +53,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2">
+          {/* Pro Subscription Button */}
+          {onOpenSubscription && (
+            <button
+              onClick={onOpenSubscription}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="View Earpro Pro Subscriptions"
+            >
+              <Crown className="w-3.5 h-3.5 fill-amber-300" />
+              <span>{isProUser ? 'Pro Member' : 'Get Pro'}</span>
+            </button>
+          )}
+
           {/* Add to Home Screen Button */}
           <button
             onClick={deferredPrompt ? onInstallPwa : onOpenInstallGuide}

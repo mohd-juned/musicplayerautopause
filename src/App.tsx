@@ -9,6 +9,7 @@ import { SongSearch } from './components/SongSearch';
 import { LyricsViewer } from './components/LyricsViewer';
 import { SettingsModal } from './components/SettingsModal';
 import { InstallGuideModal } from './components/InstallGuideModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { BottomNavBar } from './components/BottomNavBar';
 import { ActiveTab, Track } from './types';
 
@@ -16,6 +17,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('player');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInstallGuideOpen, setIsInstallGuideOpen] = useState(false);
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [addedTrackIds, setAddedTrackIds] = useState<Set<string>>(new Set());
 
@@ -45,6 +48,9 @@ export default function App() {
     setIsRepeat,
     selectTrack,
     addCustomTrack,
+    addLocalFilesBatch,
+    pickAndImportDirectory,
+    removeTrack,
     addProceduralTrack,
   } = useAudioPlayer();
 
@@ -132,6 +138,8 @@ export default function App() {
       <Header
         voiceState={voiceState}
         autoVoiceEnabled={settings.enabled}
+        isProUser={isProUser}
+        onOpenSubscription={() => setIsSubscriptionOpen(true)}
         onToggleAutoVoice={toggleEnabled}
         onOpenInstallGuide={() => setIsInstallGuideOpen(true)}
         deferredPrompt={deferredPrompt}
@@ -221,6 +229,20 @@ export default function App() {
                 addCustomTrack(file);
                 setActiveTab('player');
               }}
+              onBatchLocalTracks={(files) => {
+                notifyUserManualPlay();
+                addLocalFilesBatch(files);
+                setActiveTab('player');
+              }}
+              onPickDirectory={async () => {
+                notifyUserManualPlay();
+                const newTracks = await pickAndImportDirectory();
+                setActiveTab('player');
+                return newTracks;
+              }}
+              onRemoveTrack={(id) => {
+                removeTrack(id);
+              }}
               onGenerateTrack={() => {
                 notifyUserManualPlay();
                 addProceduralTrack();
@@ -278,6 +300,18 @@ export default function App() {
         onClose={() => setIsInstallGuideOpen(false)}
         onNativeInstall={handleInstallPwa}
         canNativeInstall={!!deferredPrompt}
+      />
+
+      {/* Pro Subscription Modal */}
+      <SubscriptionModal
+        isOpen={isSubscriptionOpen}
+        onClose={() => setIsSubscriptionOpen(false)}
+        onSubscribeSuccess={() => {
+          setIsProUser(true);
+          if (!settings.enabled) {
+            toggleEnabled();
+          }
+        }}
       />
     </div>
   );

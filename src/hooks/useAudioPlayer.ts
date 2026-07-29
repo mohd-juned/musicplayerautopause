@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Track } from '../types';
 import { PRESET_TRACKS } from '../data/presetTracks';
 import { createProceduralTrackUrl } from '../utils/audioSynth';
+import {
+  saveLocalTrackToIDB,
+  loadSavedLocalTracks,
+  removeLocalTrackFromIDB,
+} from '../utils/localFilesStore';
 
 export function useAudioPlayer() {
   const [tracks, setTracks] = useState<Track[]>(PRESET_TRACKS);
@@ -21,6 +26,23 @@ export function useAudioPlayer() {
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   const currentTrack = tracks[currentTrackIndex] || tracks[0];
+
+  // Restore saved local offline tracks from IndexedDB on initial boot
+  useEffect(() => {
+    let isMounted = true;
+    loadSavedLocalTracks().then((savedTracks) => {
+      if (isMounted && savedTracks.length > 0) {
+        setTracks((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const uniqueNew = savedTracks.filter((t) => !existingIds.has(t.id));
+          return [...uniqueNew, ...prev];
+        });
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Initialize HTMLAudioElement once
   useEffect(() => {
@@ -228,23 +250,133 @@ export function useAudioPlayer() {
     setIsPlaying(true);
   }, []);
 
-  // Add custom user file track
-  const addCustomTrack = useCallback((file: File) => {
-    const objectUrl = URL.createObjectURL(file);
-    const newTrack: Track = {
-      id: `custom-${Date.now()}`,
-      title: file.name.replace(/\.[^/.]+$/, ''),
-      artist: 'Local File',
-      album: 'User Uploads',
-      duration: 0,
-      coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
-      audioUrl: objectUrl,
-      isCustom: true,
-    };
+  // Add batch of local audio & video files (Offline MP3/Video songs)
+  const addLocalFilesBatch = useCallback((items: FileList | File[] | Track[]) => {
+    if (!items || (Array.isArray(items) && items.length === 0)) return;
 
-    setTracks((prev) => [newTrack, ...prev]);
+    // Check if items are already Track objects
+    if (Array.isArray(items) && items.length > 0 && 'audioUrl' in items[0]) {
+      const trackArray = items as Track[];
+      setTracks((prev) => [...trackArray, ...prev]);
+      setCurrentTrackIndex(0);
+      setIsPlaying(true);
+      return;
+    }
+
+    const fileArray = Array.from(items as FileList | File[]);
+    if (fileArray.length === 0) return;
+
+    const newTracks: Track[] = [];
+
+    fileArray.forEach((file, index) => {
+      const isVideo = file.type.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|3gp)$/i.test(file.name);
+      const objectUrl = URL.createObjectURL(file);
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+
+      const track: Track = {
+        id: `local-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+        title: cleanTitle,
+        artist: isVideo ? 'Offline Video (Audio Track)' : 'Offline Local MP3',
+        album: 'Device Storage',
+        duration: 0,
+        coverUrl: isVideo
+          ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=600&auto=format&fit=crop&q=80'
+          : 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
+        audioUrl: objectUrl,
+        isCustom: true,
+      };
+
+      newTracks.push(track);
+
+      // Save asynchronously to IndexedDB for persistent offline playback
+      void saveLocalTrackToIDB(track, file);
+    });
+
+    setTracks((prev) => [...newTracks, ...prev]);
     setCurrentTrackIndex(0);
     setIsPlaying(true);
+  }, []);
+
+  // Add custom single user file track
+  const addCustomTrack = useCallback((file: File) => {
+    addLocalFilesBatch([file]);
+  }, [addLocalFilesBatch]);
+
+  // Remove track from playlist and IndexedDB
+  const removeTrack = useCallback((trackId: string) => {
+    setTracks((prev) => {
+      const filtered = prev.filter((t) => t.id !== trackId);
+      return filtered;
+    });
+    void removeLocalTrackFromIDB(trackId);
+  }, []);
+
+  // Pick directory via File System Access API and recursively scan & import all audio files
+  const pickAndImportDirectory = useCallback(async (): Promise<Track[]> => {
+    if (!('showDirectoryPicker' in window)) {
+      throw new Error('File System Access API (showDirectoryPicker) is not supported in this browser.');
+    }
+
+    try {
+      const dirHandle = await (window as any).showDirectoryPicker();
+      const foundFiles: File[] = [];
+
+      // Recursive scan helper
+      async function readDirectory(handle: any) {
+        for await (const entry of handle.values()) {
+          if (entry.kind === 'file') {
+            const file = await entry.getFile();
+            const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            const validExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.mp4', '.mkv', '.webm', '.mov', '.avi', '.3gp'];
+            if (validExtensions.includes(ext) || file.type.startsWith('audio/') || file.type.startsWith('video/')) {
+              foundFiles.push(file);
+            }
+          } else if (entry.kind === 'directory') {
+            await readDirectory(entry);
+          }
+        }
+      }
+
+      await readDirectory(dirHandle);
+
+      if (foundFiles.length === 0) {
+        return [];
+      }
+
+      const importedTracks: Track[] = foundFiles.map((file, index) => {
+        const isVideo = file.type.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|3gp)$/i.test(file.name);
+        const objectUrl = URL.createObjectURL(file);
+        const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+
+        const track: Track = {
+          id: `fs-dir-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+          title: cleanTitle,
+          artist: isVideo ? 'Offline Video MP3 Stream' : 'Offline Local Track',
+          album: 'Device Folder',
+          duration: 0,
+          coverUrl: isVideo
+            ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=600&auto=format&fit=crop&q=80'
+            : 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
+          audioUrl: objectUrl,
+          isCustom: true,
+        };
+
+        // Persist track binary asynchronously in IndexedDB
+        void saveLocalTrackToIDB(track, file);
+        return track;
+      });
+
+      setTracks((prev) => [...importedTracks, ...prev]);
+      setCurrentTrackIndex(0);
+      setIsPlaying(true);
+
+      return importedTracks;
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Directory scan error:', err);
+      }
+      throw err;
+    }
   }, []);
 
   // Generate procedural lo-fi track
@@ -293,6 +425,9 @@ export function useAudioPlayer() {
     setIsRepeat: () => setIsRepeat((prev) => !prev),
     selectTrack,
     addCustomTrack,
+    addLocalFilesBatch,
+    pickAndImportDirectory,
+    removeTrack,
     addProceduralTrack,
   };
 }

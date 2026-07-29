@@ -106,11 +106,32 @@ export const VoiceDetectorPanel: React.FC<VoiceDetectorPanelProps> = ({
         </label>
       </div>
 
-      {/* Error Message */}
+      {/* Error Message & Permission Request Card */}
       {errorMessage && (
-        <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="mb-4 p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-200 text-xs space-y-2.5">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0 flex-1">
+              <span className="font-bold text-red-300 block">Microphone Access Needed</span>
+              <p className="text-zinc-300 text-[11px] leading-relaxed">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={onToggleEnabled}
+              className="px-3 py-1.5 rounded-xl bg-red-500 hover:bg-red-400 text-black font-extrabold text-[11px] flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Permission</span>
+            </button>
+
+            <span className="text-[10px] text-zinc-400">
+              Check browser address bar (🔒 icon) or Phone App Settings
+            </span>
+          </div>
         </div>
       )}
 
@@ -169,34 +190,19 @@ export const VoiceDetectorPanel: React.FC<VoiceDetectorPanelProps> = ({
             </div>
           </div>
 
-          {/* Sensitivity Slider Controls & Auto-Calibrate */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            <div className="flex-1">
-              <label className="text-[11px] text-zinc-400 mb-1 flex justify-between">
-                <span>Mic Sensitivity Threshold</span>
-                <span className="text-zinc-300 font-mono">
-                  {settings.thresholdDb <= -45 ? 'High Sensitivity (Quiet Room)' : settings.thresholdDb >= -25 ? 'Low Sensitivity (Noisy Room)' : 'Medium Sensitivity'}
-                </span>
-              </label>
-              <input
-                type="range"
-                min={-60}
-                max={-15}
-                step={1}
-                value={settings.thresholdDb}
-                onChange={(e) => onSetThresholdDb(Number(e.target.value))}
-                className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
-              />
+          {/* Automatic Noise Filter & Calibration Indicator */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-white/5 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="font-bold text-white block">Auto High-Precision Voice Threshold</span>
+                <span className="text-[11px] text-zinc-400">Fixed at -22 dB to block ambient chatter & distant voices</span>
+              </div>
             </div>
 
-            <button
-              onClick={onAutoCalibrate}
-              className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-xs font-medium text-emerald-400 flex items-center justify-center gap-1.5 transition-colors"
-              title="Automatically detect background room noise and set optimum threshold"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Auto-Calibrate</span>
-            </button>
+            <span className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold border border-emerald-500/30 shrink-0">
+              OPTIMIZED
+            </span>
           </div>
         </div>
       )}
