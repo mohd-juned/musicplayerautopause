@@ -3,13 +3,13 @@
   "name": "Earpro - Smart Music Player",
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=192&auto=format&fit=crop&q=80",
+      "src": "/src/assets/images/music_app_icon_1785345989179.jpg",
       "sizes": "192x192",
       "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512&auto=format&fit=crop&q=80",
+      "src": "/src/assets/images/music_app_icon_1785345989179.jpg",
       "sizes": "512x512",
       "type": "image/jpeg"
     }

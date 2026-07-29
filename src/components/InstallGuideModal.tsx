@@ -1,5 +1,6 @@
 import React from 'react';
 import { Smartphone, Share, PlusSquare, MoreVertical, X, CheckCircle, Download } from 'lucide-react';
+import appLogoUrl from '../assets/images/music_app_icon_1785345989179.jpg';
 
 interface InstallGuideModalProps {
   isOpen: boolean;
@@ -24,8 +25,8 @@ export const InstallGuideModal: React.FC<InstallGuideModalProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-black font-bold">
-              <Smartphone className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 shrink-0">
+              <img src={appLogoUrl} alt="Earpro App Icon" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Add to Home Screen</h3>

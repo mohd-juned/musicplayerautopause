@@ -1,6 +1,7 @@
 import React from 'react';
 import { Radio, Download, Mic, MicOff, PlusCircle, Crown } from 'lucide-react';
 import { VoiceState } from '../types';
+import appLogoUrl from '../assets/images/music_app_icon_1785345989179.jpg';
 
 interface HeaderProps {
   voiceState: VoiceState;
@@ -28,8 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         {/* Logo & Title */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-black">
-            <Mic className="w-5 h-5 font-bold" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 shrink-0">
+            <img src={appLogoUrl} alt="Earpro Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight flex items-center gap-2">
